@@ -80,11 +80,13 @@ if __name__ == "__main__":
     # optimizer = optim.SGD(model.parameters(), lr=3e-3, momentum=0.9,weight_decay=1e-2)
     optimizer = optim.AdamW(model.parameters(), lr=3e-3, weight_decay=1e-4)
     # scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=30, gamma=0.1)
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=200)
+
+    n_epochs = 100
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=n_epochs)
     loss_fn = nn.CrossEntropyLoss()
 
     training_loop(
-        n_epochs=200,
+        n_epochs=n_epochs,
         optimizer=optimizer,
         model=model,
         loss_fn=loss_fn,
