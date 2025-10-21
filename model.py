@@ -21,7 +21,7 @@ class ResBlock(nn.Module):
         return out+x 
 
 class finalNet(nn.Module):
-    def __init__(self, n_chans=32, n_blocks=10):
+    def __init__(self, n_chans=32):
         super().__init__()
         self.n_chans = n_chans
         self.conv1 = nn.Conv2d(3, n_chans, kernel_size=3, padding=1)

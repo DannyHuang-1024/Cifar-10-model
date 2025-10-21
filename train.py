@@ -35,7 +35,8 @@ def training_loop(n_epochs, optimizer, model, loss_fn, train_loader, scheduler):
 
 
             loss_train += loss.item() 
-        scheduler.step()
+            if scheduler:
+                scheduler.step()
 
         
         if epoch == 1 or epoch % 10 == 0:
@@ -76,13 +77,16 @@ if __name__ == "__main__":
         cifar, batch_size=64, shuffle=True
     )
 
-    model = finalNet(n_chans=64, n_blocks=12).to(device)
+    model = finalNet(n_chans=64).to(device)
     # optimizer = optim.SGD(model.parameters(), lr=3e-3, momentum=0.9,weight_decay=1e-2)
-    optimizer = optim.AdamW(model.parameters(), lr=3e-3, weight_decay=1e-4)
+    optimizer = optim.AdamW(model.parameters(), lr=1e-4, weight_decay=1e-4)
     # scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=30, gamma=0.1)
 
-    n_epochs = 100
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=n_epochs)
+    n_epochs = 200
+    # scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=n_epochs)
+    scheduler = optim.lr_scheduler.OneCycleLR(optimizer, max_lr=1e-3, 
+                                              steps_per_epoch=len(train_loader), 
+                                              epochs=n_epochs)    
     loss_fn = nn.CrossEntropyLoss()
 
     training_loop(
