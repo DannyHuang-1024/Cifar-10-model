@@ -12,8 +12,9 @@ class CfDatasets:
         self.cifar10_t = datasets.CIFAR10(
             data_path, train=True, download=False,
             transform=transforms.Compose(
-                [transforms.RandomHorizontalFlip(), # Flip the img horizontally
-                transforms.RandomRotation(10), # Rotate the img for a certain angle
+                [transforms.RandomCrop(32, padding=4), 
+                transforms.RandomHorizontalFlip(), # Flip the img horizontally
+                transforms.RandomRotation(15), # Rotate the img for a certain angle
                 transforms.ToTensor(),
                 transforms.Normalize(self.mean, self.std)
                 # transforms.RandomErasing(p=0.5, scale=(0.02, 0.33), ratio=(0.3, 3.3), value=0, inplace=False)
