@@ -109,7 +109,7 @@ if __name__ == "__main__":
     #---------------------------------VALIDATION------------------------------------------
 
     val_loader = data.DataLoader(
-        cifar, 
+        cifar_val, 
         batch_size=BATCH_SIZE, 
         num_workers=2,
         pin_memory=True, 
