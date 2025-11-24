@@ -1,68 +1,71 @@
-import torch.nn as nn
 import torch
+import torch.nn as nn
 import torch.nn.functional as F 
 
 class ResBlock(nn.Module):
-    def __init__(self, n_chans):
+    def __init__(self, in_chans, out_chans, stride=1):
         super().__init__()
-        # super(ResBlock, self).__init__()
-        self.conv = nn.Conv2d(n_chans, n_chans, kernel_size=3, padding=1, bias=False)
-        self.batch_norm = nn.BatchNorm2d(num_features=n_chans)
-        self.conv_dropout = nn.Dropout2d(p=0.3)
-        nn.init.kaiming_normal_(self.conv.weight, nonlinearity = 'relu')
-        nn.init.constant_(self.batch_norm.weight, 0.5)
-        nn.init.zeros_(self.batch_norm.bias)
-    
+        self.conv1 = nn.Conv2d(in_chans, out_chans, kernel_size=3, padding=1, stride=stride, bias=False)
+        self.bn1 = nn.BatchNorm2d(out_chans)
+        self.conv2 = nn.Conv2d(out_chans, out_chans, kernel_size=3, padding=1, stride=1, bias=False)
+        self.bn2 = nn.BatchNorm2d(out_chans)
+        
+        self.shortcut = nn.Sequential()
+        if stride != 1 or in_chans != out_chans:
+            self.shortcut = nn.Sequential(
+                nn.Conv2d(in_chans, out_chans, kernel_size=1, stride=stride, bias=False),
+                nn.BatchNorm2d(out_chans)
+            )
+
     def forward(self, x):
-        out = self.conv(x)
-        out = self.batch_norm(out)
-        out = torch.relu(out)
-        out = self.conv_dropout(out)
-        return out+x 
+        out = F.relu(self.bn1(self.conv1(x)))
+        out = self.bn2(self.conv2(out))
+        out += self.shortcut(x)
+        out = F.relu(out)
+        return out
 
 class finalNet(nn.Module):
-    def __init__(self, n_chans=32):
+    def __init__(self):
         super().__init__()
-        self.n_chans = n_chans
-        self.conv1 = nn.Conv2d(3, n_chans, kernel_size=3, padding=1)
+        
+        # Use 64 filters standard for ResNet18-CIFAR
+        self.in_chans = 64
+        
+        # Initial Conv (3x3 for CIFAR, not 7x7)
+        self.conv1 = nn.Conv2d(3, 64, kernel_size=3, stride=1, padding=1, bias=False)
         self.bn1 = nn.BatchNorm2d(64)
-
-        self.stage1 = nn.Sequential(ResBlock(64), ResBlock(64))
-
-        self.fmp1 = nn.FractionalMaxPool2d(kernel_size = 2, output_ratio=0.7)
-
-        self.stage2 = nn.Sequential(ResBlock(128), ResBlock(128))
-        self.transition1 = nn.Conv2d(64, 128, kernel_size=1)
-
-        self.fmp2 = nn.FractionalMaxPool2d(kernel_size=2, output_ratio=0.7)
-
-        self.stage3 = nn.Sequential(ResBlock(256), ResBlock(256))
-        self.transition2 = nn.Conv2d(128, 256, kernel_size=1)
+        
+        # ResNet Layers
+        self.layer1 = self._make_layer(64, 2, stride=1)
+        self.layer2 = self._make_layer(128, 2, stride=2)
+        self.layer3 = self._make_layer(256, 2, stride=2)
+        self.layer4 = self._make_layer(512, 2, stride=2)
 
         self.avg_pool = nn.AdaptiveAvgPool2d((1, 1))
-        self.fc = nn.Linear(256, 10) # Final classification layer
-
-    
-    def forward(self, out):
-        # Initial Layer
-        out = torch.relu(self.bn1(self.conv1(out)))
-
-        # Stage1
-        out = self.stage1(out)
-        out = self.fmp1(out)
         
-        # Stage2
-        out = self.transition1(out)
-        out = self.stage2(out)
-        out = self.fmp2(out)
+        # Dropout helps prevent the final layer from overfitting
+        self.dropout = nn.Dropout(p=0.5) 
+        self.fc = nn.Linear(512, 10)
 
-        # Stage3
-        out = self.transition2(out)
-        out = self.stage3(out)
+    def _make_layer(self, out_chans, num_blocks, stride):
+        strides = [stride] + [1]*(num_blocks-1)
+        layers = []
+        for stride in strides:
+            layers.append(ResBlock(self.in_chans, out_chans, stride))
+            self.in_chans = out_chans
+        return nn.Sequential(*layers)
 
-        #Classifer
+    def forward(self, x):
+        out = F.relu(self.bn1(self.conv1(x)))
+        
+        out = self.layer1(out)
+        out = self.layer2(out)
+        out = self.layer3(out)
+        out = self.layer4(out)
+
         out = self.avg_pool(out)
         out = out.view(out.size(0), -1)
+        
+        out = self.dropout(out) # Applied Dropout here
         out = self.fc(out)
-
         return out
