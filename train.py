@@ -4,6 +4,8 @@ import torch.optim as optim
 import torch.utils.data as data
 import datetime
 import time
+from sklearn.metrics import f1_score
+import numpy as np
 
 from cfDatasets import CfDatasets
 from model import finalNet
@@ -38,18 +40,19 @@ def training_loop(n_epochs, optimizer, model, loss_fn, train_loader, val_loader,
 
         avg_loss = loss_train / len(train_loader)
         
-        # Validate every 2 epochs
+        # Validate logic
         if epoch % 2 == 0 or epoch > n_epochs - 10:
-            val_acc = validate(model, val_loader)
+            # --- GET ACC and F1 ---
+            val_acc, val_f1 = validate(model, val_loader)
             
-            log_str = '{} Epoch {:03d}, Train Loss: {:.4f}, Val Acc: {:.4f} (Time: {:.1f}s)'.format(
+            # --- Update Print ---
+            log_str = '{} Epoch {:03d}, Loss: {:.4f}, Val Acc: {:.4f}, Val F1: {:.4f} (Time: {:.1f}s)'.format(
                 datetime.datetime.now().strftime("%H:%M:%S"), 
-                epoch, avg_loss, val_acc, time.time() - start_time
+                epoch, avg_loss, val_acc, val_f1, time.time() - start_time
             )
             
             if val_acc > best_acc:
                 best_acc = val_acc
-                # Save best model
                 torch.save(model.state_dict(), "best_cifar_model.pth")
                 log_str += " [BEST]"
             
@@ -59,24 +62,39 @@ def training_loop(n_epochs, optimizer, model, loss_fn, train_loader, val_loader,
              print('{} Epoch {:03d}, Train Loss: {:.4f}'.format(
                 datetime.datetime.now().strftime("%H:%M:%S"), epoch, avg_loss))
 
-    print(f"Training Finished. Best Validation Accuracy: {best_acc:.4f}")
 
 def validate(model, loader):
     model.eval()
-    correct = 0
-    total = 0
+    
+    # Lists to store all predictions and true labels
+    all_preds = []
+    all_targets = []
 
     with torch.no_grad():
         for imgs, labels in loader:
             imgs = imgs.to(device)
-            labels = labels.to(device)                
-            
+            # labels are usually needed on GPU for loss, 
+            # but for metric calculation we will move them back to CPU later
+            labels = labels.to(device) 
+
             outputs = model(imgs)
             _, predicted = torch.max(outputs, dim=1)
-            total += labels.shape[0]
-            correct += int((predicted == labels).sum())
+            
+            # Move to CPU and convert to numpy, then extend lists
+            all_preds.extend(predicted.cpu().numpy())
+            all_targets.extend(labels.cpu().numpy())
     
-    return correct / total
+    # Calculate Accuracy manually using numpy (easier since we have the lists)
+    all_preds = np.array(all_preds)
+    all_targets = np.array(all_targets)
+    
+    acc = (all_preds == all_targets).mean()
+    
+    # Calculate Macro F1-Score
+    # 'macro': Calculate metrics for each label, and find their unweighted mean.
+    f1 = f1_score(all_targets, all_preds, average='macro')
+    
+    return acc, f1
 
 if __name__ == "__main__":
     # CONFIG
