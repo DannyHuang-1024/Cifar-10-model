@@ -110,20 +110,20 @@ train_losses = []
 val_epochs = []
 val_accs = []
 
-# 解析 Log
+# Parse log
 for line in log_data.strip().split('\n'):
-    # 提取 Epoch
+    # Extract Epoch
     ep_match = re.search(r'Epoch (\d+)', line)
     if not ep_match: continue
     ep = int(ep_match.group(1))
     
-    # 提取 Loss (兼容 'Train Loss' 和 'Loss')
+    # Extract Loss (compatible with both 'Train Loss' and 'Loss')
     loss_match = re.search(r'(?:Train )?Loss: ([\d\.]+)', line)
     if loss_match:
         epochs.append(ep)
         train_losses.append(float(loss_match.group(1)))
     
-    # 提取 Val Acc (如果有)
+    # Extract Validation Accuracy (if exists)
     if 'Val Acc' in line:
         acc_match = re.search(r'Val Acc: ([\d\.]+)', line)
         if acc_match:
@@ -131,11 +131,11 @@ for line in log_data.strip().split('\n'):
             val_accs.append(float(acc_match.group(1)))
 
 # --- Plot Settings ---
-plt.rcParams.update({'font.size': 14}) 
+plt.rcParams.update({'font.size': 14})
 
 fig, ax1 = plt.subplots(figsize=(10, 6))
 
-# Plot Loss
+# Plot Training Loss
 color = 'tab:red'
 ax1.set_xlabel('Epoch', fontweight='bold')
 ax1.set_ylabel('Train Loss', color=color, fontweight='bold')
@@ -143,19 +143,23 @@ ax1.plot(epochs, train_losses, color=color, label='Train Loss', alpha=0.6, linew
 ax1.tick_params(axis='y', labelcolor=color)
 ax1.grid(True, alpha=0.3)
 
-# Plot Accuracy
+# Plot Validation Accuracy
 ax2 = ax1.twinx()
 color = 'tab:blue'
 ax2.set_ylabel('Validation Accuracy', color=color, fontweight='bold')
 ax2.plot(val_epochs, val_accs, color=color, marker='o', markersize=4, linewidth=2, label='Val Acc')
 ax2.tick_params(axis='y', labelcolor=color)
 
-# 标注最高点
+# Annotate the highest point
 if val_accs:
     max_acc = max(val_accs)
     max_ep = val_epochs[val_accs.index(max_acc)]
-    ax2.annotate(f'Max: {max_acc:.2%}', xy=(max_ep, max_acc), xytext=(max_ep-20, max_acc-0.05),
-                 arrowprops=dict(facecolor='black', shrink=0.05))
+    ax2.annotate(
+        f'Max: {max_acc:.2%}',
+        xy=(max_ep, max_acc),
+        xytext=(max_ep - 20, max_acc - 0.05),
+        arrowprops=dict(facecolor='black', shrink=0.05)
+    )
 
 plt.title('Training Loss and Validation Accuracy')
 fig.tight_layout()
